@@ -1,6 +1,8 @@
+#!/usr/bin/env node
+
 import yargs from 'yargs';
 import { hideBin } from 'yargs/helpers';
-import { add, edit, remove, show } from './helper/command.js';
+import { add, edit, remove, show } from '../helper/command.js';
 
 const commands = [add, show, edit, remove];
 
