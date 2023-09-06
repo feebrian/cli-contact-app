@@ -6,4 +6,4 @@ import { add, edit, remove, show } from '../helper/command.js';
 
 const commands = [add, show, edit, remove];
 
-yargs(hideBin(process.argv)).command(commands).parse();
+yargs(hideBin(process.argv)).command(commands).demandCommand().parse();
