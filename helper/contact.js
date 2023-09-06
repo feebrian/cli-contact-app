@@ -1,8 +1,9 @@
-import { existsSync, mkdirSync, writeFileSync, readFileSync, read } from 'fs';
+import { existsSync, mkdirSync, writeFileSync, readFileSync } from 'fs';
 import * as logger from './logger.js';
 import { insertTableRow, p } from './table.js';
 import chalk from 'chalk';
 import prompts from 'prompts';
+import validator from 'validator';
 
 const path = './data';
 if (!existsSync(path)) mkdirSync(path);
@@ -11,11 +12,37 @@ const filePath = './data/contacts.json';
 if (!existsSync(filePath)) writeFileSync(filePath, '[]');
 
 const fileBuffer = readFileSync(filePath, 'utf-8');
-if (fileBuffer === '') writeFileSync(filePath, '[]');
+if (validator.isEmpty(fileBuffer)) writeFileSync(filePath, '[]');
+
+const readContacts = path => {
+  const data = readFileSync(path, 'utf-8');
+  const contacts = JSON.parse(data);
+
+  return contacts;
+};
+
+const findContactByName = (contacts, name) => {
+  const contact = contacts.find(cn => cn.name === name);
+  return contact;
+};
+
+const findContactIndexByName = (contacts, name) => {
+  const contactIndex = contacts
+    .map(function (e) {
+      return e.name;
+    })
+    .indexOf(name);
+
+  return contactIndex;
+};
+
+const saveToFile = (path, data, message) => {
+  writeFileSync(path, JSON.stringify(data, null, 2));
+  logger.success(message);
+};
 
 const saveContact = (name, email, phoneNumber) => {
-  const data = readFileSync('./data/contacts.json', 'utf-8');
-  const contacts = JSON.parse(data);
+  const contacts = readContacts(filePath);
   let duplicate;
 
   duplicate = contacts.find(cn => cn.name === name);
@@ -32,19 +59,30 @@ const saveContact = (name, email, phoneNumber) => {
     return false;
   }
 
+  if (email) {
+    duplicate = contacts.find(cn => cn.email === email);
+    if (duplicate) {
+      logger.warn('This email address has been used, please use another.');
+      return false;
+    }
+
+    if (!duplicate) {
+      if (!validator.isEmail(email)) {
+        logger.error('Please use valid email.');
+        return false;
+      }
+    }
+  }
+
   const contact = { name, email, phoneNumber };
   contacts.push(contact);
 
-  // parse contacts back to json
-  const contactsJSON = JSON.stringify(contacts, null, 2);
-
-  writeFileSync('./data/contacts.json', contactsJSON);
-  logger.success('Thank you for submitting data');
+  // Save file to contacts.json
+  saveToFile(filePath, contacts, 'Thank you for submitting data');
 };
 
 const listAllContacts = () => {
-  const data = readFileSync('./data/contacts.json', 'utf-8');
-  const contacts = JSON.parse(data);
+  const contacts = readContacts(filePath);
 
   showContacts(contacts);
 };
@@ -64,10 +102,8 @@ const showContacts = data => {
 };
 
 const showContactByName = name => {
-  const data = readFileSync('./data/contacts.json', 'utf-8');
-  const contacts = JSON.parse(data);
-
-  const contact = contacts.find(cn => cn.name === name);
+  const contacts = readContacts(filePath);
+  const contact = findContactByName(contacts, name);
 
   // Handle if the contact name inputted by user match with the one of the existing contact
   if (contact) {
@@ -86,15 +122,10 @@ const showContactByName = name => {
 };
 
 const editContact = name => {
-  const data = readFileSync('./data/contacts.json', 'utf-8');
-  const contacts = JSON.parse(data);
-  const contact = contacts.find(cn => cn.name === name);
+  const contacts = readContacts(filePath);
+  const contact = findContactByName(contacts, name);
 
-  const contactIndex = contacts
-    .map(function (e) {
-      return e.name;
-    })
-    .indexOf(name);
+  const contactIndex = findContactIndexByName(contacts, name);
 
   if (contact) {
     const questions = [
@@ -123,9 +154,8 @@ const editContact = name => {
 
       contacts[contactIndex] = response;
 
-      const contactsJSON = JSON.stringify(contacts, null, 2);
-      writeFileSync('./data/contacts.json', contactsJSON);
-      logger.success('Contact edited successfully!');
+      // Save file to contacts.json
+      saveToFile(filePath, contacts, 'Contact edited successfully!');
     })();
   }
 
@@ -135,15 +165,10 @@ const editContact = name => {
 };
 
 const deleteContact = name => {
-  const data = readFileSync('./data/contacts.json', 'utf-8');
-  const contacts = JSON.parse(data);
-  const contact = contacts.find(cn => cn.name === name);
+  const contacts = readContacts(filePath);
+  const contact = findContactByName(contacts, name);
 
-  const contactIndex = contacts
-    .map(function (e) {
-      return e.name;
-    })
-    .indexOf(name);
+  const contactIndex = findContactIndexByName(contacts, name);
 
   if (contact) {
     const question = {
@@ -161,9 +186,7 @@ const deleteContact = name => {
       if (response.value) {
         contacts.splice(contactIndex, 1);
 
-        const contactsJSON = JSON.stringify(contacts, null, 2);
-        writeFileSync('./data/contacts.json', contactsJSON);
-        logger.success('Contact deleted successfully!');
+        saveToFile(filePath, contacts, 'Contact deleted successfully!');
       }
     })();
   }
